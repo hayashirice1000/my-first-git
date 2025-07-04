@@ -1,4 +1,11 @@
+//1日分のシフトを作成する関数DailyShiftAutomation()を月末までループさせる関数
 function ShiftAutomation() {
+
+};
+
+//1日分のシフトを作成する関数
+function DailyShiftAutomation() {
+  const d = 3  //この関数の引数。とりあえず直打ちにしておく
   const ss = SpreadsheetApp.getActiveSpreadsheet();  //スプレッドシートアプリを呼び出す
   const staffRegister = ss.getSheetByName("スタッフ名簿"); //スタッフ名簿シートを取得
   //スタッフ名簿を二次元配列で取得
@@ -15,7 +22,7 @@ function ShiftAutomation() {
     ②フラグ持ちをしていって、条件条件に合わないものをremoveしていく様にしてみる
     ③最後にランダム化してsetValuesする　
   */
-  
+
   //⭐️条件⭐️日勤できないスタッフを除外する
   const employTypeOfDay = ["フルタイム", "日勤専従"];
   for (let i = staffsData[0].length; i >= 0; i--) { //配列の後ろからループさせる
@@ -25,28 +32,29 @@ function ShiftAutomation() {
     };
   };
   //ここで日勤対象のスタッフに絞れた
-  Logger.log(staffsData);
+  
 
 
   // ⭐️条件⭐️：希望休の操作
   const reqDayOffSheet = ss.getSheetByName("希望休"); //シート取得
   const chooseReqDayOffSheet = ss.getSheetByName("希望休入力カレンダー(案)"); //現場が入力するシートを取得
+
   //対象月の1日〜月末日までの日にちを取得して　空欄を除外する
-  const dateOfChooseReqDayOff = chooseReqDayOffSheet.getRange(3, 3, 1, 31).getValues().filter(item => item)[0];
+  // const dateOfChooseReqDayOff = chooseReqDayOffSheet.getRange(3, 3, 1, 31).getValues().filter(item => item)[0];
   //希望休が入力されている範囲のデータを取得する
-  const chooseReqDayOff = chooseReqDayOffSheet.getRange(6, 3, staffsData[0].length, dateOfChooseReqDayOff.length).getValues();
+  const chooseReqDayOff = chooseReqDayOffSheet.getRange(6, d+2, staffsData.length, 1).getValues();
   
   // 希望休入力シートの入力欄に"希""有"があれば、配列を空欄にする
-  for(let i = 0; i < staffsData.length; i++){
-    for( let j = 0 ; j < staffsData[0].length ; j++){
-
-      if (chooseReqDayOff[i][j] == "希" || chooseReqDayOff[i][j] =="有") {
-
-
-      };
-    }
+  for (let i = 0; i < staffsData.length; i++) {
+    
+    if (chooseReqDayOff[i] == "希" || chooseReqDayOff[i] == "有") {
+      staffsData[i]= [""]
+    };
   };
-  //　　※2025/07/02 1日ごとにシフトを作りたいけど、二次元配列ループだと、1ヶ月丸ごと作ることになる。。
+  
+
+  //フラグ持ちさせて排除すべきものを同じ処理で回す。　　→  その後、看護師と介護士を分けて配列に格納　→  職種ごとの最低人数を抽出してランダムに格納。
+  //夜勤を作成　　→   次の日を回す。
 
 
 
