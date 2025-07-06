@@ -7,16 +7,21 @@ const date = new Date();
 
 //1日分のシフトを作成する関数DailyShiftAutomation()を月末までループさせる関数
 function ShiftAutomation() {
-  const shiftYear = chooseReqDayOffSheet.getRange(1, 1).getValue();
-  const shiftMonth = chooseReqDayOffSheet.getRange(1, 6).getValue();
-  const eoMonth = new Date(shiftYear, shiftMonth, 0).getDate();
-  Logger.log(eoMonth)
-  const shiftDate = chooseReqDayOffSheet.getRange(3, 3, 1, eoMonth).getValues();
-  for (i = 0; i < eoMonth-1;i++){
-      let dailyShiftData = [shiftDate, "日勤", ...DailyShiftAutomation(i).map(row => row[1])];
+  const shiftYear = chooseReqDayOffSheet.getRange(1, 1).getValue(); //希望休カレンダーにある　年　を取得
+  const shiftMonth = chooseReqDayOffSheet.getRange(1, 6).getValue();//希望休カレンダーにある　月　を取得
+  const eoMonth = new Date(shiftYear, shiftMonth, 0).getDate();     //希望休カレンダーにある　月末日　を取得
+  // const shiftDate = chooseReqDayOffSheet.getRange(3, 3, 1, eoMonth).getValues(); 
+  const shiftDate = (day) => new Date(shiftYear,shiftMonth-1,day);    //アロー関数だとこう
+  // function shiftDate (day) {
+  //   const theShiftDate = new Date(shiftYear, shiftMonth-1, day);
+  //   return theShiftDate;
+  // };
+  Logger.log(shiftDate(1));
+  for (i = 0; i < eoMonth - 1; i++) {
+    let dailyShiftData = [shiftDate(i), "日勤", ...DailyShiftAutomation(i).map(row => row[1])];
     Logger.log(dailyShiftData)
   };
-    testSheet.getRange(2, 1, 1, dailyShiftData.length).setValues([dailyShiftData]);
+  testSheet.getRange(2, 1, 1, dailyShiftData.length).setValues([dailyShiftData]);
 };
 
 //1日分のシフトを作成する関数
