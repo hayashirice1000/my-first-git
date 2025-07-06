@@ -16,12 +16,12 @@ function ShiftAutomation() {
   //   const theShiftDate = new Date(shiftYear, shiftMonth-1, day);
   //   return theShiftDate;
   // };
-  Logger.log(shiftDate(1));
-  for (i = 0; i < eoMonth - 1; i++) {
-    let dailyShiftData = [shiftDate(i), "日勤", ...DailyShiftAutomation(i).map(row => row[1])];
-    Logger.log(dailyShiftData)
+  let monthlyShiftData = [];
+  for (i = 1; i <= eoMonth; i++) {
+    const daily = [shiftDate(i), "日勤", ...DailyShiftAutomation(i).map(row => row[1])];
+    monthlyShiftData.push(daily);
   };
-  testSheet.getRange(2, 1, 1, dailyShiftData.length).setValues([dailyShiftData]);
+  testSheet.getRange(2, 1, monthlyShiftData.length, monthlyShiftData[0].length).setValues(monthlyShiftData);
 };
 
 //1日分のシフトを作成する関数
