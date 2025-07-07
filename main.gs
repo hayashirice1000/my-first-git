@@ -1,59 +1,69 @@
-const ss = SpreadsheetApp.getActiveSpreadsheet();  //スプレッドシートアプリを呼び出す
+const ss = SpreadsheetApp.getActiveSpreadsheet();  //スプレッドシートアプリを呼び出して、現在のスプレッドシートファイルを取得
 const staffRegister = ss.getSheetByName("スタッフ名簿"); //スタッフ名簿シートを取得
-const chooseReqDayOffSheet = ss.getSheetByName("希望休入力カレンダー"); //現場が入力するシートを取得
-const testSheet = ss.getSheetByName("テスト");
-//スタッフ名簿を二次元配列で取得
+const dayOffSheet = ss.getSheetByName("希望休入力カレンダー"); //現場が入力するシートを取得
+const testSheet = ss.getSheetByName("テスト"); //ただのテスト。ちゃんとsetValuesできるか見るため。
+// testSheet.getRange(1,1,staffsData.length,staffsData[0].length).setValues(staffsData);テストで使えるよ
+let staffsData = staffRegister.getRange(2, 1, staffRegister.getLastRow() - 1, staffRegister.getLastColumn()).getValues(); //スタッフ名簿のレコードを取得
+const staffColRow = staffRegister.getRange(1, 1, 1, staffRegister.getLastColumn()).getValues();//スタッフ名簿のスタッフを取得
+const staffCol = staffColRow[0];//上段のを一次元配列にする
 const date = new Date();
 
 //1日分のシフトを作成する関数DailyShiftAutomation()を月末までループさせる関数
 function ShiftAutomation() {
-  const shiftYear = chooseReqDayOffSheet.getRange(1, 1).getValue(); //希望休カレンダーにある　年　を取得
-  const shiftMonth = chooseReqDayOffSheet.getRange(1, 6).getValue();//希望休カレンダーにある　月　を取得
+  const shiftYear = dayOffSheet.getRange(1, 1).getValue(); //希望休カレンダーにある　年　を取得
+  const shiftMonth = dayOffSheet.getRange(1, 6).getValue();//希望休カレンダーにある　月　を取得
   const eoMonth = new Date(shiftYear, shiftMonth, 0).getDate();     //希望休カレンダーにある　月末日　を取得
-  // const shiftDate = chooseReqDayOffSheet.getRange(3, 3, 1, eoMonth).getValues(); 
-  const shiftDate = (day) => new Date(shiftYear,shiftMonth-1,day);    //アロー関数だとこう
+  // const shiftDate = dayOffSheet.getRange(3, 3, 1, eoMonth).getValues(); 
+  const shiftDate = (day) => new Date(shiftYear, shiftMonth - 1, day);    //アロー関数だとこう
   // function shiftDate (day) {
   //   const theShiftDate = new Date(shiftYear, shiftMonth-1, day);
   //   return theShiftDate;
   // };
-  let monthlyShiftData = [];
+  let monthlyShiftData = []; //当月シフトデータ
   for (i = 1; i <= eoMonth; i++) {
-    const daily = [shiftDate(i), "日勤", ...DailyShiftAutomation(i).map(row => row[1])];
-    monthlyShiftData.push(daily);
+    const daily = [shiftDate(i), "日勤", ...DailyShiftAutomation(i).map(row => row[1])];//1日分のシフトデータを[日付、勤務帯、出勤者名]にする
+    monthlyShiftData.push(daily); //日毎にpushして二次元配列化
   };
-  testSheet.getRange(2, 1, monthlyShiftData.length, monthlyShiftData[0].length).setValues(monthlyShiftData);
+  Logger.log(monthlyShiftData)
+  testSheet.getRange(2, 1, monthlyShiftData.length, monthlyShiftData[0].length).setValues(monthlyShiftData); //テストシートに転記
+};
+
+
+// ⭐️条件⭐️：希望休の操作
+//希望休に合致しないスタッフを引数d日のみ二次元配列にする 
+function RequestDayOff(d, staffsDataArray) {  //d:日にち;数値型 staffsDataArray:スタッフデータの配列;二次元配列型
+  //希望休カレンダーにあるスタッフ名簿を取得する
+  const dayOffStaffs = dayOffSheet.getRange(6, 1, dayOffSheet.getLastRow() - 5, 1).getValues().flat();
+  //希望休カレンダー(スプレッドシート)のd日分のデータを取得する　！スタッフ名も取り出して二次元配列に！
+  const reqDayOff = dayOffSheet.getRange(6, d + 2, dayOffStaffs.length, 1).getValues().flat();
+  //スタッフと希望休の有無を二次元配列化した。
+  const dailyReqDayArray = dayOffStaffs.map((item, i) => [item, reqDayOff[i]]);
+  //staffDatasの中でdailyReqDayArrayの希望休がある人を除く。
+  const notReqDayOff = dailyReqDayArray
+    .filter(([name, dayoff]) => dayoff == "")  //希望休がない人を
+    .map(([name]) => name); // 一次元配列に
+  const filteredStaffsData = staffsDataArray.filter(([_, name]) => notReqDayOff.includes(name));//staffsDataの中で合致するレコードを取り出す。
+  return filteredStaffsData;
 };
 
 //1日分のシフトを作成する関数
-function DailyShiftAutomation(d) {  //引数dは「希望休入力カレンダー」シートの日付部分
-  const staffsData = staffRegister.getRange(2, 1, staffRegister.getLastRow() - 1, staffRegister.getLastColumn()).getValues();
-  const staffColRow = staffRegister.getRange(1, 1, 1, staffRegister.getLastColumn()).getValues();//スタッフ名簿のスタッフを取得
-  const staffCol = staffColRow[0];//上段のを一次元配列にする
+function DailyShiftAutomation() {  //引数dは「希望休入力カレンダー」シートの日付部分
+  const d = 8  //後からもどす
   let dailyStaffs = [];//その日のスタッフ配列
   //テストシート※最後に消す！
-  const staffEmploymentTypeColol = staffCol.indexOf("雇用形態");//雇用形態列の列数を取得
 
   //⭐️条件⭐️日勤できないスタッフを除外する
+  const staffEmploymentTypeColol = staffCol.indexOf("雇用形態");//雇用形態列の列数を取得
   const employTypeOfDay = ["フルタイム", "日勤専従"];
-  for (let i = staffsData[0].length; i >= 0; i--) { //配列の後ろからループさせる
-    // if(staffsData[i][staffEmploymentTypeColol] === "フルタイム" || staffsData[i][staffEmploymentTypeColol] === "日勤専従"){   こっちでも行ける
-    if (!employTypeOfDay.includes(staffsData[i][staffEmploymentTypeColol])) { //勤務形態の条件に合致しないものを
-      staffsData[i] = [""]; //空欄にする
-    };
-  };
+  staffsData = staffsData.filter(row => employTypeOfDay.includes(row[9]));
+  
+  //前日夜勤の場合は日勤には当てない　‼️作業中‼️
 
-  // ⭐️条件⭐️：希望休の操作
-  //希望休が入力されている範囲のデータを取得する
-  const chooseReqDayOff = chooseReqDayOffSheet.getRange(6, d + 2, staffsData.length, 1).getValues();
 
-  // 希望休入力シートの入力欄に"希""有"があれば、配列を空欄にする
-  for (let i = 0; i < staffsData.length; i++) {
-    if (chooseReqDayOff[i] == "希" || chooseReqDayOff[i] == "有") {
-      staffsData[i] = [""]
-    };
-  };
+  //希望休の関数を使う
+  staffsData = RequestDayOff(d, staffsData); 
 
-  //⭐️条件⭐️　特定の職種の最低人数を抽出して　変数dailyShiftarray格納する
+  //⭐️条件⭐️　特定の職種の最低人数を抽出して　変数dailyStaffs格納する
   const requiredNurses = 2;//看護師必要人数　　一旦直打ちで(2025/07/04)
   const requiredDailyStaffs = 5;  //その日の最低出勤人数
   const requiredCareWarkers = requiredDailyStaffs - requiredNurses; //介護士必要人数
@@ -74,8 +84,4 @@ function DailyShiftAutomation(d) {  //引数dは「希望休入力カレンダ�
   //　当日シフト配列に格納
   dailyStaffs = [...randomizeNurses, ...randommizeCareWorkers];
   return dailyStaffs;
-
-  //フラグ持ちさせて排除すべきもの（希望休・前日まで出勤情報（週休1日以上、月休9日、日夜条件））を同じ処理で回す。　　
-  //→  その後、看護師を最低人数格納する　→  介護士のところに残りの看護師とその他職業を格納する
-  //夜勤を作成　　→   月末まで回す。
 };
