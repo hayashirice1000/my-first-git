@@ -1,5 +1,5 @@
 function TEST() {
-  // ⭐️変数の定義ゾーン
+  // ⭐️変数の定義
   const ss = SpreadsheetApp.getActiveSpreadsheet();  //スプレッドシートアプリを呼び出して、現在のスプレッドシートファイルを取得
   const staffRegister = ss.getSheetByName("スタッフ名簿"); //スタッフ名簿シートを取得
   const dayOffSheet = ss.getSheetByName("希望休入力カレンダー"); //現場が入力するシートを取得
@@ -12,222 +12,87 @@ function TEST() {
   const staffsData = staffRegister.getRange(2, 1, staffRegister.getLastRow() - 1, staffRegister.getLastColumn()).getValues();
   const staffColRow = staffRegister.getRange(1, 1, 1, staffRegister.getLastColumn()).getValues();//スタッフ名簿のスタッフを取得
   const staffCol = staffColRow[0];//上段のを一次元配列にする
+  const nurses = staffsData.filter(row => row[8] == "看護師");//看護師名簿
+  const others = staffsData.filter(row => row[8] != "看護師");//看護師以外名簿
+  const number0fDayNurses = 2; //日勤　看護師　必要人数
+  const naumberOfDaystaffs = 5 //日勤　必要人数
+  const number0fNightNurses = 1; //夜勤　看護師　必要人数
+  const naumberOfNightStaffs = 2 //夜勤　　必要人数
 
   /*
   オブジェクト形式でオブジェクト＝個人　プロパティ＝当月の勤務状態（日勤or夜勤or夜勤明け（明け）,休日）にして
   先に①希望休　　ループ内（②夜勤者　③日勤者)で月間勤務を作成
-  {夜勤:[name,job],日勤[name,job]}を作成してループさせる
+  {夜勤:[name,job],日勤[name,job]}を作成してループさせる　あとで最低職種人数をチャックするため
   
   */
 
-  const shiftMonthByStaffs = {};//1人ずつ一月分の配列をオブジェクトにする
+  const shiftMonthByStaffs = {};//1人ずつ一月分の配列を連想配列にする
   staffsData.forEach(function ([_, name]) { //スタッフ名簿の2つ目のインデックスの値を
     shiftMonthByStaffs[name] = Array(eoMonth).fill(null); //プロパティにして、それぞれ、月の日数分値を用意してnullを入れる
   }); //log {清水咲良:[null, null, null,...],鈴木翔太:[null, null, null,...],...} 
 
   //希望休を入れる
   const reqDayOff = {};
+  //希望休シートにあるスタッフを一次元配列に
   const dayOffStaffs = dayOffSheet.getRange(6, 1, dayOffSheet.getLastRow() - 5, 1).getValues().flat();
-  const dayOffDatas = dayOffSheet.getRange(6, 3, dayOffStaffs.length, eoMonth).getValues();
+  const dayOffDatas = dayOffSheet.getRange(6, 3, dayOffStaffs.length, eoMonth).getValues();//希望休の二次元配列
   for (i = 0; i < dayOffStaffs.length; i++) {
-    reqDayOff[dayOffStaffs[i]] = dayOffDatas[i];
+    reqDayOff[dayOffStaffs[i]] = dayOffDatas[i]; //名前をプロパティ、日にちを値とする連想配列に
   };
 
   for (name in reqDayOff) {
+    //for...in文で二つの連想配列の名前が合致する時の操作をできる様にする
     const daysOff = reqDayOff[name];
     const shiftMonthByStaffsArr = shiftMonthByStaffs[name];
-    for (let i = 0; i < daysOff.length; i++){
-      if(daysOff[i] != "" ) shiftMonthByStaffsArr[i]="休";
+    //希望休カレンダーに何か入力されていたら、休日扱いにする
+    for (let i = 0; i < daysOff.length; i++) {
+      if (daysOff[i] != "") shiftMonthByStaffsArr[i] = "休";
     };
+  };// shiftMonthByStaffs = {清水咲良:[null, "休", null,...],鈴木翔太:["休", null, null,...],...} 
+  // Logger.log(shiftMonthByStaffs)
+
+  //職種をランダムして、分けて、並べる‼️作業中‼️
+  //＜夜勤＞
+  //その日休みか
+  //日勤専従か
+  //前日は夜勤か、前々日は夜勤か
+
+  //＜日勤＞夜勤の同様の作業
+  for (let day = 0; day < eoMonth; i++) {//日毎に
+    const dayShift = { "日勤": [], "夜勤": [] };//
+
+    const shuffledNurses = nurses.sort(() => Math.random() - 0.5);//看護師全員をシャッフル
+    //日勤に必要なスタッフをシャッフルして看護師、それ以外で並べる
+    const requiredDayNurses = shuffledNurses.slice(0, number0fDayNurses + 1); //看護師が必要な分
+    const leftOverDaystaffs = [...others, ...shuffledNurses].slice(number0fDayNurses + 1).sort(() => Math.random() - 0.5);
+    const shuffledDayStaffs = [...requiredDayNurses, ...leftOverDaystaffs];
+    // Logger.log(shuffledDayStaffs)
+    //夜勤も同様
+    const requiredNightNurses = shuffledNurses.slice(0, number0fDayNurses + 1); //看護師が必要な分
+    const leftOverNightstaffs = [...others, ...shuffledNurses].slice(number0fDayNurses + 1).sort(() => Math.random() - 0.5);
+    const shuffledNightStaffs = [...requiredNightNurses, ...leftOverNightstaffs];
+
+    for (let [, name, , , , , , , job, type] of shuffledDayStaffs) {
+      if (shiftMonthByStaffs[name][day]) continue;
+      if (type == "日勤専従") continue;
+      const prevDay1 = day > 0 ? shiftMonthByStaffs[name][day - 1] : null;
+      const prevDay2 = day > 1 ? shiftMonthByStaffs[name][day - 2] : null;
+      if ([prevDay1, prevDay2].includes("夜勤")) continue;
+
+      const thisWeek = shiftMonthByStaffs[name].slice(Math.max(0, day - 6), day);
+      const workedThisWeek = thisWeek.filter(work => work == "日勤" || work == "夜勤").length;
+      const workedThisMonth = shiftMonthByStaffs.filter(work => work == "日勤" || work == "夜勤").length;
+      if (workedThisWeek > 6 || workedThisMonth >= eoMonth - 9) continue;
+
+      shiftMonthByStaffs[name][day] = "夜勤";
+      if (day + 1 < eoMonth) shiftMonthByStaffs[name][day + 1] = "明け";
+      if (day + 2 < eoMonth) shiftMonthByStaffs[name][day + 2] = "休";
+    };
+    Logger.log(shiftMonthByStaffs);
+
+
+
+
+
+
   };
-  
-
-
-
-
-
-
-
-//  以下、一旦コメントアウトにしておく
-
-  // ⭐️条件⭐️ 希望休、有休その他休暇のスタッフを除外する
-  //希望休に合致しないスタッフを引数d日のみ二次元配列にする 　
-  // function RequestDayOff(d, staffsDataArray) {  //d:日にち;数値型 staffsDataArray:スタッフデータの配列;二次元配列型
-  //   //希望休カレンダーにあるスタッフ名簿を取得する
-  //   const dayOffStaffs = dayOffSheet.getRange(6, 1, dayOffSheet.getLastRow() - 5, 1).getValues().flat();
-  //   //希望休カレンダー(スプレッドシート)のd日分のデータを取得する　！スタッフ名も取り出して二次元配列に！
-  //   const reqDayOff = dayOffSheet.getRange(6, d + 2, dayOffStaffs.length, 1).getValues().flat();
-  //   //スタッフと希望休の有無を二次元配列化した。
-  //   const dailyReqDayArray = dayOffStaffs.map((item, i) => [item, reqDayOff[i]]);
-  //   //staffDatasの中でdailyReqDayArrayの希望休がある人を除く。
-  //   const notReqDayOff = dailyReqDayArray
-  //     .filter(([name, dayoff]) => dayoff == "")  //希望休がない人を
-  //     .map(([name]) => name); // 一次元配列に
-  //   const filteredStaffsData = staffsDataArray.filter(([_, name]) => notReqDayOff.includes(name));//staffsDataの中で合致するレコードを取り出す。
-  //   return filteredStaffsData;
-  // };
-
-  // // ⭐️条件⭐️ 日勤できないスタッフを除外する
-  // function EnmloyTypeOfDayShift(staffsDataArray) { //staffsDataArray:スタッフデータの配列;二次元配列型
-  //   const staffEmploymentTypeColol = staffCol.indexOf("雇用形態");//雇用形態列の列数を取得
-  //   const employTypeOfDay = ["フルタイム", "日勤専従"];
-  //   staffsDataArray = staffsDataArray.filter(row => employTypeOfDay.includes(row[9]));
-  //   return staffsDataArray;
-  // };
-
-  // // ⭐️条件⭐️ 夜勤できないスタッフを除外する
-  // function EnmloyTypeOfNightShift(staffsDataArray) { //staffsDataArray:スタッフデータの配列;二次元配列型
-  //   const staffEmploymentTypeColol = staffCol.indexOf("雇用形態");//雇用形態列の列数を取得
-  //   const employTypeOfDay = ["フルタイム", "夜勤専従"];
-  //   staffsDataArray = staffsDataArray.filter(row => employTypeOfDay.includes(row[9]));
-  //   return staffsDataArray;
-  // };
-
-  // /*
-  //   ⭐️条件⭐️ 日勤操作　
-  //   ①前日夜勤の場合は除外　→前日の夜勤情報が必要　→前日日勤情報必要　→・・・・・前日の情報がないならないで進める！
-  //   ②７連勤はさせない→６連続日勤が続いたら除外
-  //   ③月9日の休暇→なるべく週休２日になるよう確率的に操作できないか
-  // */
-  // // いつの配列を持ってくるか　　→   シフトデータ化されたもので判断するしかない　　→   処理の順番をDailyShiftAutomation()の後にするべき   
-  // //‼️作業中‼️
-  // function OperateDayOff() {
-  //   const d = 1;
-  //   const dayTime = DailyDayShiftAutomation(d);//引数の日のシフト配列
-  //   const nightTime = DailyNightShiftAutomation(d);
-  //   Logger.log(dayTime.map(row => row[1]));
-  //   Logger.log(nightTime.map(row => row[1]));
-  //   //n日目の日勤を作る。　　n-1とn-2の夜勤を見て夜勤が入っていたら除外する。
-
-
-
-  // };
-
-
-  // //1日分の日勤シフトを作成する関数
-  // function DailyDayShiftAutomation() {  //引数dは「希望休入力カレンダー」シートの日付部分(ループ処理で月末まで回すための変数)
-  //   const d = 8  //後から引数にもどす
-
-  //   //勤務形態を日勤に絞り込み
-  //   let staffsDayTimeData = EnmloyTypeOfDayShift(staffsData);
-  //   //希望休の関数を使う
-  //   staffsDaytimeData = RequestDayOff(d, staffsDayTimeData);
-
-  //   //⭐️条件⭐️　特定の職種の最低人数を抽出して　変数dailyStaffs格納する
-  //   function dailyStaffsArray(requiredNurses,requiredDailyStaffs,staffsDataArr){
-  //     const requiredCareWarkers = requiredDailyStaffs - requiredNurses; //介護士必要人数
-  //     const jobCol = 8; //スタッフ名簿における職業カラム
-  //     //看護師に合致するスタッフデータstaffDatasを当日シフトdailyShiftArrayにfilterする
-  //     const nurseStaffs = staffsDataArr.filter(n => n[jobCol] == "看護師");
-
-  //     // 看護師を2人ランダムで抽出する
-  //     const randomizeNurses = nurseStaffs.sort(() => Math.random() - 0.5).slice(0, requiredNurses); //"sort(()=>Math.random()-0.5)"で配列をランダム化
-  //     //　選ばれなかった看護師を抽出する
-  //     const leftOverNurses = nurseStaffs.filter(l => !randomizeNurses.includes(l));
-  //     //　介護士を選ぶ
-  //     const careWorkerStaffs = staffsDataArr.filter(o => o[jobCol] == "介護士");
-  //     //　選ばれなかった看護師と他の職種を同じ配列へ
-  //     const leftOverStaffs = [...leftOverNurses, ...careWorkerStaffs];
-  //     //　介護士をランダムで抽出する
-  //     const randommizeCareWorkers = leftOverStaffs.sort(() => Math.random() - 0.5).slice(0, requiredCareWarkers);
-  //     //　当日シフト配列に格納
-  //     let dailyStaffs = [];//その日のスタッフ配列
-  //     dailyStaffs = [...randomizeNurses, ...randommizeCareWorkers];
-  //     return dailyStaffs;
-
-  //   };
-
-
-
-  //     //勤務形態を夜勤に絞り込み
-  //   staffsNightData = EnmloyTypeOfNightShift(staffsData);
-
-  //   //⭐️条件⭐️ 同日日勤は夜勤に入れない。
-  //   const sameDayShift = dailyStaffsArray.map(row => row[1]); //同日日勤者を一次元配列にして
-  //   staffsData = staffsData.filter(name => !sameDayShift.includes(name[1])); //その人たちを除外する
-  //   Logger.log(dailyStaffsArray,staffsData)
-
-
-  //   // // const requiredNurses = 2;//看護師必要人数　　一旦直打ちで(2025/07/04)
-  //   // // const requiredDailyStaffs = 5;  //その日の最低出勤人数
-  //   // const requiredCareWarkers = requiredDailyStaffs - requiredNurses; //介護士必要人数
-  //   // const jobCol = 8; //スタッフ名簿における職業カラム
-  //   // //看護師に合致するスタッフデータstaffDatasを当日シフトdailyShiftArrayにfilterする
-  //   // const nurseStaffs = staffsData.filter(n => n[jobCol] == "看護師");
-
-  //   // // 看護師を2人ランダムで抽出する
-  //   // const randomizeNurses = nurseStaffs.sort(() => Math.random() - 0.5).slice(0, requiredNurses); //"sort(()=>Math.random()-0.5)"で配列をランダム化
-  //   // //　選ばれなかった看護師を抽出する
-  //   // const leftOverNurses = nurseStaffs.filter(l => !randomizeNurses.includes(l));
-  //   // //　介護士を選ぶ
-  //   // const careWorkerStaffs = staffsData.filter(o => o[jobCol] == "介護士");
-  //   // //　選ばれなかった看護師と他の職種を同じ配列へ
-  //   // const leftOverStaffs = [...leftOverNurses, ...careWorkerStaffs];
-  //   // //　介護士をランダムで抽出する
-  //   // const randommizeCareWorkers = leftOverStaffs.sort(() => Math.random() - 0.5).slice(0, requiredCareWarkers);
-  //   // //　当日シフト配列に格納
-  //   // let dailyStaffs = [];//その日のスタッフ配列
-  //   // dailyStaffs = [...randomizeNurses, ...randommizeCareWorkers];
-  //   // return dailyStaffs;
-
-
-  // };
-
-  // //1日分の夜勤シフトを作成する関数
-  // function DailyNightShiftAutomation(d) {  //引数dは「希望休入力カレンダー」シートの日付部分(ループ処理で月末まで回すための変数)
-  //   // const d = 8  //後から引数にもどす
-
-  //   //勤務形態を夜勤に絞り込み
-  //   staffsData = EnmloyTypeOfNightShift(staffsData);
-  //   //希望休の関数を使う
-  //   staffsData = RequestDayOff(d, staffsData);
-  //   //⭐️条件⭐️ 同日日勤は夜勤に入れない。
-  //   const sameDayShift = DailyDayShiftAutomation(d).map(row => row[1]); //同日日勤者を一次元配列にして
-  //   staffsData = staffsData.filter(name => !sameDayShift.includes(name[1])); //その人たちを除外する
-
-
-  //   //⭐️条件⭐️ 特定の職種の最低人数を抽出して　変数dailyStaffs格納する
-  //   const requiredNurses = 1;//看護師必要人数　　一旦直打ちで(2025/07/04)
-  //   const requiredDailyStaffs = 2;  //その日の最低出勤人数
-  //   const requiredCareWarkers = requiredDailyStaffs - requiredNurses; //介護士必要人数
-  //   const jobCol = 8; //スタッフ名簿における職業カラム
-  //   //看護師に合致するスタッフデータstaffDatasを当日シフトdailyShiftArrayにfilterする
-  //   const nurseStaffs = staffsData.filter(n => n[jobCol] == "看護師");
-
-  //   // 看護師を2人ランダムで抽出する
-  //   const randomizeNurses = nurseStaffs.sort(() => Math.random() - 0.5).slice(0, requiredNurses); //"sort(()=>Math.random()-0.5)"で配列をランダム化
-  //   //　選ばれなかった看護師を抽出する
-  //   const leftOverNurses = nurseStaffs.filter(l => !randomizeNurses.includes(l));
-  //   //　介護士を選ぶ
-  //   const careWorkerStaffs = staffsData.filter(o => o[jobCol] == "介護士");
-  //   //　選ばれなかった看護師と他の職種を同じ配列へ
-  //   const leftOverStaffs = [...leftOverNurses, ...careWorkerStaffs];
-  //   //　介護士をランダムで抽出する
-  //   const randommizeCareWorkers = leftOverStaffs.sort(() => Math.random() - 0.5).slice(0, requiredCareWarkers);
-  //   //　当日シフト配列に格納
-  //   let dailyStaffs = [];//その日のスタッフ配列
-  //   dailyStaffs = [...randomizeNurses, ...randommizeCareWorkers];
-  //   return dailyStaffs;
-  // };
-
-
-
-  // //1日分のシフトを作成する関数DailyShiftAutomation()を月末までループさせる関数
-  // function ShiftAutomation() {
-  //   //関数shiftDate(day)　day;数値型　希望休カレンダーの日付を持ってくる
-  //   const shiftDate = (day) => new Date(shiftYear, shiftMonth - 1, day);
-  //   let monthlyShiftData = []; //当月シフトデータ
-  //   for (i = 1; i <= eoMonth; i++) {
-  //     const daily = [shiftDate(i), "日勤", ...DailyShiftAutomation(i).map(row => row[1])];//1日分のシフトデータを[日付、勤務帯、出勤者名]にする
-  //     monthlyShiftData.push(daily); //日毎にpushして二次元配列化
-  //   };
-
-  //   testSheet.getRange(2, 1, monthlyShiftData.length, monthlyShiftData[0].length).setValues(monthlyShiftData); //テストシートに転記
-  // };
-
-
-
-
-
-
-};
