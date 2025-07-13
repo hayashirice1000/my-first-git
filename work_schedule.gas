@@ -51,7 +51,7 @@ function TEST() {
   };// shiftMonthByStaffs = {清水咲良:[null, "休", null,...],鈴木翔太:["休", null, null,...],...} 
   // Logger.log(shiftMonthByStaffs)
 
-  //職種をランダムして、分けて、並べる‼️作業中‼️
+  //職種をランダムして、分けて、並べる
   //＜夜勤＞
   //その日休みか
   //日勤専従か
@@ -59,7 +59,7 @@ function TEST() {
 
   //＜日勤＞夜勤の同様の作業
   for (let day = 0; day < eoMonth; i++) {//日毎に
-    const dayShift = { "日勤": [], "夜勤": [] };//
+    const dayShift = { "日勤": [], "夜勤": [] };//日勤と夜勤のプロパティにその日の値を入れていく
 
     const shuffledNurses = nurses.sort(() => Math.random() - 0.5);//看護師全員をシャッフル
     //日勤に必要なスタッフをシャッフルして看護師、それ以外で並べる
@@ -71,27 +71,31 @@ function TEST() {
     const requiredNightNurses = shuffledNurses.slice(0, number0fDayNurses + 1); //看護師が必要な分
     const leftOverNightstaffs = [...others, ...shuffledNurses].slice(number0fDayNurses + 1).sort(() => Math.random() - 0.5);
     const shuffledNightStaffs = [...requiredNightNurses, ...leftOverNightstaffs];
+    Logger.log(shuffledNightStaffs)
+    //‼️作業中‼️
+    //夜勤を検討
+    //シャッフルしたのスタッフの配列の名前と職種と雇用形態をループ
+    for (let [, name, , , , , , , job, type] of shuffledNightStaffs) { 
+      //‼️作業中‼️　ここにその日の勤務に夜勤が必要人数に達していたらcontinue　を入れる
+      if (shiftMonthByStaffs[name][day]) continue;  //day日にデータが入っていたらcontinue
+      if (type == "日勤専従") continue; //日勤専従ならcontinue
+      const prevDay1 = day > 0 ? shiftMonthByStaffs[name][day - 1] : null; //前日のシフト
+      const prevDay2 = day > 1 ? shiftMonthByStaffs[name][day - 2] : null; //前々日のシフト
+      if ([prevDay1, prevDay2].includes("夜勤")) continue; //前日と前々日に夜勤が含まれていたらcontinue
 
-    for (let [, name, , , , , , , job, type] of shuffledDayStaffs) {
-      if (shiftMonthByStaffs[name][day]) continue;
-      if (type == "日勤専従") continue;
-      const prevDay1 = day > 0 ? shiftMonthByStaffs[name][day - 1] : null;
-      const prevDay2 = day > 1 ? shiftMonthByStaffs[name][day - 2] : null;
-      if ([prevDay1, prevDay2].includes("夜勤")) continue;
-
-      const thisWeek = shiftMonthByStaffs[name].slice(Math.max(0, day - 6), day);
+      const thisWeek = shiftMonthByStaffs[name].slice(Math.max(0, day - 6), day);//6日前から今日までのシフト
+      //日勤と夜勤の数を抽出
       const workedThisWeek = thisWeek.filter(work => work == "日勤" || work == "夜勤").length;
-      const workedThisMonth = shiftMonthByStaffs.filter(work => work == "日勤" || work == "夜勤").length;
+      //今月の　日勤と夜勤の数を抽出
+      const workedThisMonth = shiftMonthByStaffs[name].filter(work => work == "日勤" || work == "夜勤").length;//
+      //今週6日以上勤務しているか、今月（月日数-9日）以上勤務している）ならcontinue
       if (workedThisWeek > 6 || workedThisMonth >= eoMonth - 9) continue;
 
       shiftMonthByStaffs[name][day] = "夜勤";
       if (day + 1 < eoMonth) shiftMonthByStaffs[name][day + 1] = "明け";
       if (day + 2 < eoMonth) shiftMonthByStaffs[name][day + 2] = "休";
     };
-    Logger.log(shiftMonthByStaffs);
-
-
-
+    // Logger.log(shiftMonthByStaffs);
 
 
 
