@@ -15,23 +15,18 @@ function TEST() {
   const nurses = staffsData.filter(row => row[8] == "看護師");//看護師名簿
   const others = staffsData.filter(row => row[8] != "看護師");//看護師以外名簿
   const number0fDayNurses = 2; //日勤　看護師　必要人数
-  const naumberOfDaystaffs = 5 //日勤　必要人数
+  const requiredDayStaffs = 6; //日勤　必要人数
   const number0fNightNurses = 1; //夜勤　看護師　必要人数
-  const naumberOfNightStaffs = 2 //夜勤　　必要人数
+  const requiredNightStaffs = 2 //夜勤　　必要人数
 
-  /*
-  オブジェクト形式でオブジェクト＝個人　プロパティ＝当月の勤務状態（日勤or夜勤or夜勤明け（明け）,休日）にして
-  先に①希望休　　ループ内（②夜勤者　③日勤者)で月間勤務を作成
-  {夜勤:[name,job],日勤[name,job]}を作成してループさせる　あとで最低職種人数をチャックするため
-  
-  */
 
+  //⭐️スタッフの勤務表枠をオブジェクトで作成
   const shiftMonthByStaffs = {};//1人ずつ一月分の配列を連想配列にする
   staffsData.forEach(function ([_, name]) { //スタッフ名簿の2つ目のインデックスの値を
     shiftMonthByStaffs[name] = Array(eoMonth).fill(null); //プロパティにして、それぞれ、月の日数分値を用意してnullを入れる
   }); //log {清水咲良:[null, null, null,...],鈴木翔太:[null, null, null,...],...} 
 
-  //希望休を入れる
+  //⭐️希望休を入れる
   const reqDayOff = {};
   //希望休シートにあるスタッフを一次元配列に
   const dayOffStaffs = dayOffSheet.getRange(6, 1, dayOffSheet.getLastRow() - 5, 1).getValues().flat();
@@ -39,7 +34,6 @@ function TEST() {
   for (i = 0; i < dayOffStaffs.length; i++) {
     reqDayOff[dayOffStaffs[i]] = dayOffDatas[i]; //名前をプロパティ、日にちを値とする連想配列に
   };
-
   for (name in reqDayOff) {
     //for...in文で二つの連想配列の名前が合致する時の操作をできる様にする
     const daysOff = reqDayOff[name];
@@ -49,41 +43,39 @@ function TEST() {
       if (daysOff[i] != "") shiftMonthByStaffsArr[i] = "休";
     };
   };// shiftMonthByStaffs = {清水咲良:[null, "休", null,...],鈴木翔太:["休", null, null,...],...} 
-  // Logger.log(shiftMonthByStaffs)
+  
+  //⭐️日毎にシフトを作成する
+  for (let day = 1; day <= eoMonth; day++) {//日毎に
 
-  //職種をランダムして、分けて、並べる
-  //＜夜勤＞
-  //その日休みか
-  //日勤専従か
-  //前日は夜勤か、前々日は夜勤か
-
-  //＜日勤＞夜勤の同様の作業
-  for (let day = 0; day < eoMonth; i++) {//日毎に
-    const dayShift = { "日勤": [], "夜勤": [] };//日勤と夜勤のプロパティにその日の値を入れていく
-
+    //スタッフをシャッフルする
+      //看護師をシャッフル
     const shuffledNurses = nurses.sort(() => Math.random() - 0.5);//看護師全員をシャッフル
-    //日勤に必要なスタッフをシャッフルして看護師、それ以外で並べる
-    const requiredDayNurses = shuffledNurses.slice(0, number0fDayNurses + 1); //看護師が必要な分
-    const leftOverDaystaffs = [...others, ...shuffledNurses].slice(number0fDayNurses + 1).sort(() => Math.random() - 0.5);
+    
+      //日勤に必要なスタッフをシャッフルして看護師、それ以外で並べる
+    const requiredDayNurses = shuffledNurses.slice(0, number0fDayNurses); //看護師が必要な分
+    const leftOverDaystaffs = [...others, ...shuffledNurses].slice(number0fDayNurses).sort(() => Math.random() - 0.5);
     const shuffledDayStaffs = [...requiredDayNurses, ...leftOverDaystaffs];
-    // Logger.log(shuffledDayStaffs)
-    //夜勤も同様
-    const requiredNightNurses = shuffledNurses.slice(0, number0fDayNurses + 1); //看護師が必要な分
-    const leftOverNightstaffs = [...others, ...shuffledNurses].slice(number0fDayNurses + 1).sort(() => Math.random() - 0.5);
+    
+      //夜勤も同様
+    const requiredNightNurses = shuffledNurses.slice(0, number0fNightNurses); //看護師が必要な分
+    const leftOverNightstaffs = [...others, ...shuffledNurses].slice(number0fNightNurses).sort(() => Math.random() - 0.5);
     const shuffledNightStaffs = [...requiredNightNurses, ...leftOverNightstaffs];
-    Logger.log(shuffledNightStaffs)
-    //‼️作業中‼️
+    
+
     //夜勤を検討
     //シャッフルしたのスタッフの配列の名前と職種と雇用形態をループ
-    for (let [, name, , , , , , , job, type] of shuffledNightStaffs) { 
-      //‼️作業中‼️　ここにその日の勤務に夜勤が必要人数に達していたらcontinue　を入れる
-      if (shiftMonthByStaffs[name][day]) continue;  //day日にデータが入っていたらcontinue
+    for (let [, name, , , , , , , job, type] of shuffledNightStaffs) {
+      //夜勤の現在人数を数える
+      const numberOfNightStaffs = Object.values(shiftMonthByStaffs).filter(row => row[day] == "夜勤").length;
+      if (numberOfNightStaffs >= requiredNightStaffs) break;//必要人数に達していたらbreak
+      if (shiftMonthByStaffs[name][day]) continue;  //その日[day]にnull以外が入っていたらcontinue
       if (type == "日勤専従") continue; //日勤専従ならcontinue
       const prevDay1 = day > 0 ? shiftMonthByStaffs[name][day - 1] : null; //前日のシフト
       const prevDay2 = day > 1 ? shiftMonthByStaffs[name][day - 2] : null; //前々日のシフト
       if ([prevDay1, prevDay2].includes("夜勤")) continue; //前日と前々日に夜勤が含まれていたらcontinue
 
-      const thisWeek = shiftMonthByStaffs[name].slice(Math.max(0, day - 6), day);//6日前から今日までのシフト
+      //6日前から今日までのシフト
+      const thisWeek = shiftMonthByStaffs[name].slice(Math.max(0, day - 6), day);
       //日勤と夜勤の数を抽出
       const workedThisWeek = thisWeek.filter(work => work == "日勤" || work == "夜勤").length;
       //今月の　日勤と夜勤の数を抽出
@@ -91,12 +83,37 @@ function TEST() {
       //今週6日以上勤務しているか、今月（月日数-9日）以上勤務している）ならcontinue
       if (workedThisWeek > 6 || workedThisMonth >= eoMonth - 9) continue;
 
-      shiftMonthByStaffs[name][day] = "夜勤";
-      if (day + 1 < eoMonth) shiftMonthByStaffs[name][day + 1] = "明け";
-      if (day + 2 < eoMonth) shiftMonthByStaffs[name][day + 2] = "休";
+      shiftMonthByStaffs[name][day] = "夜勤";//上記の条件をクリアした人に夜勤を入れる
+      if (day + 1 < eoMonth) shiftMonthByStaffs[name][day + 1] = "明け";//夜勤に翌日は明け
+      if (day + 2 < eoMonth) shiftMonthByStaffs[name][day + 2] = "休";//明けの次の日は必ず休みになる
     };
-    // Logger.log(shiftMonthByStaffs);
+
+    //日勤を検討   夜勤との違いは翌日、翌々日に勤務情報を入れなくもよいところ。
+    for (let [, name, , , , , , , job, type] of shuffledDayStaffs) {
+      const numberOfDayStaffs = Object.values(shiftMonthByStaffs).filter(row => row[day] =="日勤").length;
+      if (numberOfDayStaffs >= requiredDayStaffs) break;
+      if (shiftMonthByStaffs[name][day]) continue; 
+      if (type == "夜勤専従") continue; //夜勤専従ならcontinue
+      const prevDay1 = day > 0 ? shiftMonthByStaffs[name][day - 1] : null; 
+      const prevDay2 = day > 1 ? shiftMonthByStaffs[name][day - 2] : null; 
+      if ([prevDay1, prevDay2].includes("夜勤")) continue; 
+
+      const thisWeek = shiftMonthByStaffs[name].slice(Math.max(0, day - 6), day);
+      const workedThisWeek = thisWeek.filter(work => work == "日勤" || work == "夜勤").length;
+      const workedThisMonth = shiftMonthByStaffs[name].filter(work => work == "日勤" || work == "夜勤").length;//
+      //今週6日以上勤務しているか、今月（月日数-9日）以上勤務している）ならcontinue
+      if (workedThisWeek > 6 || workedThisMonth >= eoMonth - 9) continue;
+
+      shiftMonthByStaffs[name][day] = "日勤";//上記の条件をクリアした人に夜勤を入れる
+      
+    };
 
 
 
   };
+  // Logger.log(shiftMonthByStaffs);
+
+  const testobject = Object.entries(shiftMonthByStaffs);
+  Logger.log(testobject)
+  // testSheet.getRange(1,1,testobject.length,testobject[0].length).setValues(testobject); 
+};
