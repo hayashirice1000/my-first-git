@@ -8,7 +8,6 @@ function TEST() {
   const eoMonth = new Date(shiftYear, shiftMonth, 0).getDate();     //希望休カレンダーにある　月末日　を取得
   const testSheet = ss.getSheetByName("テスト"); //ただのテスト。ちゃんとsetValuesできるか見るため。
   // testSheet.getRange(1,1,staffsData.length,staffsData[0].length).setValues(staffsData);テストシートで使えるよ
-  // スタッフ名簿のレコードを取得。配列を操作できるようletで宣言。
   const staffsData = staffRegister.getRange(2, 1, staffRegister.getLastRow() - 1, staffRegister.getLastColumn()).getValues();
   const staffColRow = staffRegister.getRange(1, 1, 1, staffRegister.getLastColumn()).getValues();//スタッフ名簿のスタッフを取得
   const staffCol = staffColRow[0];//上段のを一次元配列にする
