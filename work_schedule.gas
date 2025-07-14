@@ -43,24 +43,25 @@ function TEST() {
       if (daysOff[i] != "") shiftMonthByStaffsArr[i] = "休";
     };
   };// shiftMonthByStaffs = {清水咲良:[null, "休", null,...],鈴木翔太:["休", null, null,...],...} 
-  
+
   //⭐️日毎にシフトを作成する
-  for (let day = 1; day <= eoMonth; day++) {//日毎に
+  for (let day = 0; day < eoMonth; day++) {//日毎に
 
     //スタッフをシャッフルする
-      //看護師をシャッフル
+    //看護師をシャッフル
     const shuffledNurses = nurses.sort(() => Math.random() - 0.5);//看護師全員をシャッフル
-    
-      //日勤に必要なスタッフをシャッフルして看護師、それ以外で並べる
+
+    //日勤に必要なスタッフをシャッフルして看護師、それ以外で並べる
     const requiredDayNurses = shuffledNurses.slice(0, number0fDayNurses); //看護師が必要な分
-    const leftOverDaystaffs = [...others, ...shuffledNurses].slice(number0fDayNurses).sort(() => Math.random() - 0.5);
+    const leftOverDaystaffs = [...others, ...shuffledNurses.slice(number0fDayNurses)].sort(() => Math.random() - 0.5);
     const shuffledDayStaffs = [...requiredDayNurses, ...leftOverDaystaffs];
-    
-      //夜勤も同様
+
+    //夜勤も同様
     const requiredNightNurses = shuffledNurses.slice(0, number0fNightNurses); //看護師が必要な分
-    const leftOverNightstaffs = [...others, ...shuffledNurses].slice(number0fNightNurses).sort(() => Math.random() - 0.5);
+    const leftOverNightstaffs = [...others, ...shuffledNurses.slice(number0fNightNurses)].sort(() => Math.random() - 0.5);
     const shuffledNightStaffs = [...requiredNightNurses, ...leftOverNightstaffs];
-    
+    // Logger.log(shuffledNightStaffs.map(v=>v[1]))
+
 
     //夜勤を検討
     //シャッフルしたのスタッフの配列の名前と職種と雇用形態をループ
@@ -81,7 +82,7 @@ function TEST() {
       //今月の　日勤と夜勤の数を抽出
       const workedThisMonth = shiftMonthByStaffs[name].filter(work => work == "日勤" || work == "夜勤").length;//
       //今週6日以上勤務しているか、今月（月日数-9日）以上勤務している）ならcontinue
-      if (workedThisWeek > 6 || workedThisMonth >= eoMonth - 9) continue;
+      if (workedThisWeek >= 5 || workedThisMonth >= eoMonth - 9) continue;
 
       shiftMonthByStaffs[name][day] = "夜勤";//上記の条件をクリアした人に夜勤を入れる
       if (day + 1 < eoMonth) shiftMonthByStaffs[name][day + 1] = "明け";//夜勤に翌日は明け
@@ -90,30 +91,31 @@ function TEST() {
 
     //日勤を検討   夜勤との違いは翌日、翌々日に勤務情報を入れなくもよいところ。
     for (let [, name, , , , , , , job, type] of shuffledDayStaffs) {
-      const numberOfDayStaffs = Object.values(shiftMonthByStaffs).filter(row => row[day] =="日勤").length;
+      const numberOfDayStaffs = Object.values(shiftMonthByStaffs).filter(row => row[day] == "日勤").length;
       if (numberOfDayStaffs >= requiredDayStaffs) break;
-      if (shiftMonthByStaffs[name][day]) continue; 
+      if (shiftMonthByStaffs[name][day]) continue;
       if (type == "夜勤専従") continue; //夜勤専従ならcontinue
-      const prevDay1 = day > 0 ? shiftMonthByStaffs[name][day - 1] : null; 
-      const prevDay2 = day > 1 ? shiftMonthByStaffs[name][day - 2] : null; 
-      if ([prevDay1, prevDay2].includes("夜勤")) continue; 
+      const prevDay1 = day > 0 ? shiftMonthByStaffs[name][day - 1] : null;
+      const prevDay2 = day > 1 ? shiftMonthByStaffs[name][day - 2] : null;
+      if ([prevDay1, prevDay2].includes("夜勤")) continue;
 
       const thisWeek = shiftMonthByStaffs[name].slice(Math.max(0, day - 6), day);
       const workedThisWeek = thisWeek.filter(work => work == "日勤" || work == "夜勤").length;
-      const workedThisMonth = shiftMonthByStaffs[name].filter(work => work == "日勤" || work == "夜勤").length;//
+      const workedThisMonth = shiftMonthByStaffs[name].filter(work => work == "日勤" || work == "夜勤").length;
       //今週6日以上勤務しているか、今月（月日数-9日）以上勤務している）ならcontinue
-      if (workedThisWeek > 6 || workedThisMonth >= eoMonth - 9) continue;
+      if (workedThisWeek >= 6 || workedThisMonth >= eoMonth - 9) continue;
 
-      shiftMonthByStaffs[name][day] = "日勤";//上記の条件をクリアした人に夜勤を入れる
-      
+      shiftMonthByStaffs[name][day] = "日勤";
     };
-
-
-
   };
-  // Logger.log(shiftMonthByStaffs);
 
-  const testobject = Object.entries(shiftMonthByStaffs);
-  Logger.log(testobject)
-  // testSheet.getRange(1,1,testobject.length,testobject[0].length).setValues(testobject); 
+  //‼️作業中‼️
+  //nullに”休”を代入
+  for (let name in shiftMonthByStaffs) {
+    shiftMonthByStaffs[name] = shiftMonthByStaffs[name].map(value => value == null ? "休" : value);
+  };
+  //スプレッドシートに吐き出せる様に二次元配列に直す
+  const testArray = Object.entries(shiftMonthByStaffs).map(([name, shift]) => [name, ...shift]);
+  // Logger.log(testArray)
+  testSheet.getRange(1, 1, testArray.length, testArray[0].length).setValues(testArray);
 };
