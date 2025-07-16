@@ -8,9 +8,8 @@ function ShiftAutomation() {
   const eoMonth = new Date(shiftYear, shiftMonth, 0).getDate();     //希望休カレンダーにある　月末日　を取得
   const testSheet = ss.getSheetByName("テスト"); //ただのテスト。ちゃんとsetValuesできるか見るため。
   // testSheet.getRange(1,1,staffsData.length,staffsData[0].length).setValues(staffsData);テストシートで使えるよ
+  //スタッフ名簿の値を取得
   const staffsData = staffRegister.getRange(2, 1, staffRegister.getLastRow() - 1, staffRegister.getLastColumn()).getValues();
-  const staffColRow = staffRegister.getRange(1, 1, 1, staffRegister.getLastColumn()).getValues();//スタッフ名簿のスタッフを取得
-  const staffCol = staffColRow[0];//上段のを一次元配列にする
   const nurses = staffsData.filter(row => row[8] == "看護師");//看護師名簿
   const others = staffsData.filter(row => row[8] != "看護師");//看護師以外名簿
   const number0fDayNurses = 2; //日勤　看護師　必要人数
@@ -29,11 +28,12 @@ function ShiftAutomation() {
   const reqDayOff = {};
   //希望休シートにあるスタッフを一次元配列に
   const dayOffStaffs = dayOffSheet.getRange(6, 1, dayOffSheet.getLastRow() - 5, 1).getValues().flat();
-  const dayOffDatas = dayOffSheet.getRange(6, 3, dayOffStaffs.length, eoMonth).getValues();//希望休の二次元配列
+  //希望休の二次元配列
+  const dayOffDatas = dayOffSheet.getRange(6, 3, dayOffStaffs.length, eoMonth).getValues();
   for (i = 0; i < dayOffStaffs.length; i++) {
     reqDayOff[dayOffStaffs[i]] = dayOffDatas[i]; //名前をプロパティ、日にちを値とする連想配列に
   };
-  for (name in reqDayOff) {//二つの連想配列の名前が合致する時の操作をできる様にする
+  for (name in reqDayOff) {//スタッフシフトの連想配列 と 希望休の連想配列 のループ
     const daysOff = reqDayOff[name];
     const shiftMonthByStaffsArr = shiftMonthByStaffs[name];
     //希望休カレンダーに何か入力されていたら、休日扱いにする
@@ -43,7 +43,7 @@ function ShiftAutomation() {
   };// shiftMonthByStaffs = {清水咲良:[null, "休", null,...],鈴木翔太:["休", null, null,...],...} 
 
   //⭐️日毎にシフトを作成する
-  for (let day = 0; day < eoMonth; day++) {//日毎に
+  for (let day = 0; day < eoMonth; day++) {//該当月の1日から月末日まで
 
     //スタッフをシャッフルする
     //看護師をシャッフル
@@ -84,7 +84,7 @@ function ShiftAutomation() {
       //今週5日以上勤務しているか、今月（月日数-9日）以上勤務している）ならcontinue
       if (workedThisWeek >= 5 || workedThisMonth >= eoMonth - 9) continue;
 
-      //直近１週間の勤務回数が多いほど休みになりやすい　　または　週に1,2日のみ休みん場合
+      //直近１週間の勤務回数が多いほど休みになりやすい　　または　週に1,2日のみ休みの場合
       if (Math.random() * 100 < probablityShift[workedThisWeek] || dayOffThisWeek >= 2) {
         if (shiftMonthByStaffs[name][day + 1] == null && shiftMonthByStaffs[name][day + 1] == null) {
           shiftMonthByStaffs[name][day] = "夜勤";//上記の条件をクリアした人に夜勤を入れる
@@ -118,13 +118,14 @@ function ShiftAutomation() {
     };
   };
 
+  //⭐️スプレッドシートに転記
   //nullに”休”を代入
   for (let name in shiftMonthByStaffs) {
     shiftMonthByStaffs[name] = shiftMonthByStaffs[name].map(value => value == null ? "休" : value);
   };
   //スプレッドシートに吐き出せる様に二次元配列に直す
   const testArray = Object.entries(shiftMonthByStaffs).map(([name, shift]) => [name, ...shift]);
-  // Logger.log(testArray)
+  //スプレッドシートに転記
   testSheet.getRange(1, 1, testArray.length, testArray[0].length).setValues(testArray);
 
 
