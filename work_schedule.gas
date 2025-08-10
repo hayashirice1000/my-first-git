@@ -89,7 +89,7 @@ function ShiftAutomation() {
     };
   };// shiftMonthByStaffs = {清水咲良:[null, "休", null,...],鈴木翔太:["休", null, null,...],...} 
 
-  //⭐️日毎にシフトを作成する
+  //⭐️⭐️日毎にシフトを作成する
   for (let day = 0; day < eoMonth; day++) {//該当月の1日から月末日まで
     const nextDay = day + 1;
     const next2Day = day + 2;
@@ -230,7 +230,7 @@ function ShiftAutomation() {
   };
 
   // ‼️作業中‼️　連勤がすごいことになってる
-  //⭐️休日が多い人を勤務に回す処理
+  //⭐️⭐️休日が多い人を勤務に回す処理
   for (let name in shiftMonthByStaffs) {
     const shift = shiftMonthByStaffs[name];
     // 現在の休み数を数える
@@ -256,20 +256,21 @@ function ShiftAutomation() {
         const dayWorkCount = Object.values(shiftMonthByStaffs).filter(row => row[day] == nikkin).length;
         const dayNightCount = Object.values(shiftMonthByStaffs).filter(row => row[day] == yakin).length;
 
-        // 夜勤が足りていない & 明け/次の日に勤務がなければ夜勤も検討
+        // 夜勤を検討  夜勤が足りていない & 明け/次の日に勤務がなければ
         if (dayNightCount < requiredNightStaffs) {
 
           // 明け・休みを入れる余裕があるか
           if (next2Day < eoMonth && shift[nextDay] == yasumi && dayOff.includes(shift[next2Day])) {
             shift[day] = yakin;
             shift[nextDay] = ake;
+            shift[next2Day] = akeyasu;
             currentDaysOff--;
             found = true;
             break;
           }
         }
 
-        // まだ日勤人数が足りていないなら日勤を割り当て
+        //日勤検討　まだ日勤人数が足りていないなら
         if (dayWorkCount < requiredDayStaffs) {
           if (shift[day] == yasumi) shift[day] = nikkin;
           currentDaysOff--;
