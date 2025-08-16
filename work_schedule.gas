@@ -248,20 +248,18 @@ function ShiftAutomation() {
     // 指定の公休数より多い場合
     while (currentDaysOff > monthlyDayOff) {
       // 勤務可能な日（現在"休"になっている日）を探す
-      const restIndexes = shift;
 
       let found = false;
-      for (let i = restIndexes.length - 1; i > 0; i--) {
-        const day = restIndexes[i];
-        if (day != yasumi) continue;//"休"しか検討しない
-        const recentDay = shift.slice(Math.max(0, day - continuousWork), day);//直近の「連勤上限」日数分の勤務str
+      for (let day = 0; day < shift.length; day++) {
+
+        if (shift[day] != yasumi) continue;//"休"しか検討しない
+        const recentDay = shift.slice(Math.max(0, day - continuousWork), day);//直近の「連勤上限」日数分の勤務str        
         const recentWorkConut = recentDay.filter(v => v == nikkin).length;
         if (day > 0 && recentWorkConut == continuousWork) continue;
         // if (!recentDay.some(v => dayOff.includes(v))) continue;//連勤上限に達していたらcontinue;
 
         const nextDay = day + 1;
         const next2Day = day + 2;
-
         // その日の勤務人数を数える
         const dayWorkCount = Object.values(shiftMonthByStaffs).filter(row => row[day] == nikkin).length;
         const dayNightCount = Object.values(shiftMonthByStaffs).filter(row => row[day] == yakin).length;
@@ -310,9 +308,43 @@ function ShiftAutomation() {
     }
   }
 
-  //⭐️⭐️
 
 
+
+  //⭐️⭐️もう一度
+  for (let name in shiftMonthByStaffs) {
+    /*
+    一人ひとりみていく
+    forの中で月全体の勤務数ソートを作り
+    その人の休暇数が9日以上なら　ループさせて
+    そこから順に日勤を割り当てる
+    */
+    const shift = shiftMonthByStaffs[name];
+    const type = staffsData.filter(col => col[namecol] == name).map(v => v[employeeTypeCol]);
+    if (type == onlyNightShift) continue;
+    //月間の勤務者数が少ないランキング
+
+      let currentDaysOff = shift.filter(day => dayOff.includes(day)).length;
+      while (currentDaysOff < monthlyDayOff) {
+        for (let day = 0; day < shift.length; day++) {
+        const recentDay = shift.slice(Math.max(0, day - continuousWork), day);//直近の「連勤上限」日数分の勤務str        
+        const recentWorkConut = recentDay.filter(v => v == nikkin).length;
+        if (day > 0 && recentWorkConut == continuousWork) continue;
+        const workCount = [...Array(eoMonth)].fill(null).map((_, col) => ({
+          index: col,
+          values: Object.values(shiftMonthByStaffs).map(row => row[col]).filter(v => v == nikkin).length
+        })).sort((a, b) => a.values - b.values);
+        //その日に勤務者数最低日
+        shift[workCount[0].index] = nikkin;
+        currentDaysOff--;
+      };
+    };
+
+
+
+
+
+  };
 
   //⭐️スプレッドシートに転記
   //スプレッドシートに吐き出せる様に二次元配列に直す
