@@ -238,7 +238,6 @@ function ShiftAutomation() {
     };
   };
 
-  // ‼️作業中‼️　まだ定員に達していない
   //⭐️⭐️定員に達していない日
   for (let name in shiftMonthByStaffs) {
     const shift = shiftMonthByStaffs[name];
@@ -254,9 +253,8 @@ function ShiftAutomation() {
 
         if (shift[day] != yasumi) continue;//"休"しか検討しない
         const recentDay = shift.slice(Math.max(0, day - continuousWork), day);//直近の「連勤上限」日数分の勤務str        
-        const recentWorkCount = recentDay.filter(v => v == nikkin).length;
+        const recentWorkCount = recentDay.filter(work => workday.includes(work)).length;
         if (day > 0 && recentWorkCount == continuousWork) continue;
-        // if (!recentDay.some(v => dayOff.includes(v))) continue;//連勤上限に達していたらcontinue;
 
         const nextDay = day + 1;
         const next2Day = day + 2;
@@ -296,12 +294,14 @@ function ShiftAutomation() {
         //日勤検討　まだ日勤人数が足りていないなら
         if (dayWorkCount < requiredDayStaffs) {
           if (type == onlyNightShift) continue;
-          if (shift[day] == yasumi) shift[day] = nikkin;
-          currentDaysOff--;
-          found = true;
-          break;
+          if (shift[day] == yasumi) {
+            shift[day] = nikkin;
+            currentDaysOff--;
+            found = true;
+            break;
+          };
         }
-      }
+      };
 
       // 適した勤務日がなければ break（無限ループ防止）
       if (!found) break;
@@ -332,17 +332,22 @@ function ShiftAutomation() {
         values: Object.values(shiftMonthByStaffs).map(row => row[col]).filter(v => v == nikkin).length
       })).sort((a, b) => a.values - b.values);
 
-      for (let day = 0; day < shift.length; day++) {
-        //直近の「連勤上限」日数分の勤務str        
-        const recentDay = shift.slice(Math.max(0, day - continuousWork), workCount[day].index);
-        // Logger.log("workCount[day].index" + workCount[day].index)
-        const recentWorkCount = recentDay.filter(v => v == nikkin).length;
-        // Logger.log("recentWorkCount" + recentWorkCount);
-        if (recentWorkCount == continuousWork) continue;
+      for (let { index } of workCount) {  //勤務者数少ない日ランキング上位からみていく    
+        if (shift[index] != yasumi) continue;
+        //配列wotkCountのindex日の直近continousWork日間のシフトを取り出す
+        const recentDay = shift.slice(Math.max(0, index - continuousWork), index);
+        //上記の配列のなかで勤務日のみを数える
+        const recentWorkCount = recentDay.filter(work => workday.includes(work)).length;
+        //連勤上限に達していたらcontinue;
+        if (recentWorkCount >= continuousWork) continue;
+        //該当日の翌日～連勤上限日数分のシフトを取り出す
+        const afterDay = shift.slice(index + 1, index + continuousWork + 1);
+        const afterWorkCount = afterDay.filter(work => workday.includes(work)).length;
+        if (afterWorkCount >= continuousWork) continue;
         //その日に勤務者数最低日
-        shift[workCount[day].index] = nikkin;
+        shift[index] = nikkin;
         currentDaysOff--;
-        if (currentDaysOff = monthlyDayOff) break;
+        if (currentDaysOff == monthlyDayOff) break;
         found = true;
       };
       if (!found) break;
