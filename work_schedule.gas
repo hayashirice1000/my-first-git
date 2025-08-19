@@ -34,6 +34,7 @@ function ShiftAutomation() {
   const requiredNightNurses = workSettingSheet.getRange(number0fNightNursesRow + 1, 2).getValue();
   const continuousWorkRow = settingRowDatas.indexOf("連勤上限");
   const continuousWork = workSettingSheet.getRange(continuousWorkRow + 1, 2).getValue();
+  const limitoverWorkDay = continuousWork + 1//連勤上限のループ時使用
   const monthlyDayOffRow = settingRowDatas.indexOf("月間休暇日数");
   const monthlyDayOff = workSettingSheet.getRange(monthlyDayOffRow + 1, 2).getValue();
   const nightShiftIntervalRow = settingRowDatas.indexOf("夜勤最短間隔"); //連勤上限
@@ -54,7 +55,8 @@ function ShiftAutomation() {
   const yasumi = "休";
   const akeyasu = "明休"
   const workday = [nikkin, yakin];
-  const dayOff = [yasumi, kibokyu];
+  const dayOff = [yasumi, kibokyu, akeyasu];
+  const dayOffForYakin = [yasumi, kibokyu];
   const asatteyasumi = [null, kibokyu];
 
   //ランダムメソッドで使う直近１週間勤務数に応じた配列
@@ -83,11 +85,11 @@ function ShiftAutomation() {
   for (name in reqDayOff) {//スタッフシフトの連想配列 と 希望休の連想配列 のループ
     const daysOff = reqDayOff[name];
     const shiftMonthByStaffsArr = shiftMonthByStaffs[name];
-    //希望休カレンダーに何か入力されていたら、休日扱いにする
+    //希望休カレンダーに何か入力されていたら、そのデータを代入する
     for (let i = 0; i < daysOff.length; i++) {
       if (daysOff[i] != "") shiftMonthByStaffsArr[i] = daysOff[i];
     };
-  };// shiftMonthByStaffs = {清水咲良:[null, "休", null,...],鈴木翔太:["休", null, null,...],...} 
+  };// shiftMonthByStaffs = {清水咲良:[null, "希", null,...],鈴木翔太:["有", null, null,...],...} 
 
   //⭐️⭐️日毎にシフトを作成する
   for (let day = 0; day < eoMonth; day++) {//該当月の1日から月末日まで
@@ -171,11 +173,11 @@ function ShiftAutomation() {
       //指定の期間に夜勤があればcontinue
       if (nightShiftIntervalLength >= 1) continue;
       //直近の「連勤上限」日数分の勤務str
-      const recentDay = shift.slice(Math.max(0, day - continuousWork), day);
+      const previousDay = shift.slice(Math.max(0, day - continuousWork), day);
       //そのうちの日勤の数
-      const recentWorkCount = recentDay.filter(v => v == nikkin).length;
+      const previousWorkCount = previousDay.filter(v => v == nikkin).length;
       //連勤上限に達していたらcontinue
-      if (day > 0 && recentWorkCount == continuousWork) continue;
+      if (day > 0 && previousWorkCount == continuousWork) continue;
       //今月の　日勤と夜勤の数を抽出
       const workedThisMonth = shift.filter(work => workday.includes(work)).length;//
       //公休を規定日数に達しているならcontinue
@@ -223,9 +225,9 @@ function ShiftAutomation() {
       const prevDay2 = day > 1 ? shift[prev2Day] : null;
       if ([prevDay1, prevDay2].includes(yakin)) continue;
 
-      const recentDay = shift.slice(Math.max(0, day - continuousWork), day);
-      const recentWorkCount = recentDay.filter(v => v == nikkin).length;
-      if (day > 0 && recentWorkCount == continuousWork) continue;
+      const previousDay = shift.slice(Math.max(0, day - continuousWork), day);
+      const previousWorkCount = previousDay.filter(v => v == nikkin).length;
+      if (day > 0 && previousWorkCount == continuousWork) continue;
       const workedThisMonth = shift.filter(work => workday.includes(work)).length;
       if (workedThisMonth >= eoMonth - monthlyDayOff) continue;
       // if (Math.random() * 100 < probablityShift[workedThisWeek]) {
@@ -243,7 +245,9 @@ function ShiftAutomation() {
     const shift = shiftMonthByStaffs[name];
     // 現在の休み数を数える
     let currentDaysOff = shift.filter(day => dayOff.includes(day)).length;
-    const type = staffsData.filter(col => col[namecol] == name).map(v => v[employeeTypeCol]);
+    // const type = staffsData.filter(col => col[namecol] == name).map(v => v[employeeTypeCol]);
+    const type = staffsData.filter(col => col[namecol] == name).flat()[employeeTypeCol];
+
     // 指定の公休数より多い場合
     while (currentDaysOff > monthlyDayOff) {
       // 勤務可能な日（現在"休"になっている日）を探す
@@ -252,9 +256,9 @@ function ShiftAutomation() {
       for (let day = 0; day < shift.length; day++) {
 
         if (shift[day] != yasumi) continue;//"休"しか検討しない
-        const recentDay = shift.slice(Math.max(0, day - continuousWork), day);//直近の「連勤上限」日数分の勤務str        
-        const recentWorkCount = recentDay.filter(work => workday.includes(work)).length;
-        if (day > 0 && recentWorkCount == continuousWork) continue;
+        const previousDay = shift.slice(Math.max(0, day - continuousWork), day);//直近の「連勤上限」日数分の勤務str        
+        const previousWorkCount = previousDay.filter(work => workday.includes(work)).length;
+        if (day > 0 && previousWorkCount == continuousWork) continue;
 
         const nextDay = day + 1;
         const next2Day = day + 2;
@@ -267,7 +271,7 @@ function ShiftAutomation() {
           if (type == onlyDayShift) continue;
           // 明け・休みを入れる余裕があるか
           if (next2Day < eoMonth) {
-            if (shift[nextDay] == yasumi && dayOff.includes(shift[next2Day])) {
+            if (shift[nextDay] == yasumi && dayOffForYakin.includes(shift[next2Day])) {
               shift[day] = yakin;
               shift[nextDay] = ake;
               shift[next2Day] = akeyasu;
@@ -313,17 +317,14 @@ function ShiftAutomation() {
 
   //⭐️⭐️もう一度
   for (let name in shiftMonthByStaffs) {
-    /*
-    一人ひとりみていく
-    forの中で月全体の勤務数ソートを作り
-    その人の休暇数が9日以上なら　ループさせて
-    そこから順に日勤を割り当てる
-    */
+
     const shift = shiftMonthByStaffs[name];
-    const type = staffsData.filter(col => col[namecol] == name).map(v => v[employeeTypeCol]);
+
+    const type = staffsData.filter(col => col[namecol] == name).flat()[employeeTypeCol];
     if (type == onlyNightShift) continue;
 
     let currentDaysOff = shift.filter(day => dayOff.includes(day)).length;
+
     while (currentDaysOff > monthlyDayOff) {
       let found = false;
       //月間の勤務者数が少ないランキング（連想配列の配列）
@@ -332,31 +333,34 @@ function ShiftAutomation() {
         values: Object.values(shiftMonthByStaffs).map(row => row[col]).filter(v => v == nikkin).length
       })).sort((a, b) => a.values - b.values);
 
+
       for (let { index } of workCount) {  //勤務者数少ない日ランキング上位からみていく    
-        if (shift[index] != yasumi) continue;
-        //配列wotkCountのindex日の直近continousWork日間のシフトを取り出す
-        const recentDay = shift.slice(Math.max(0, index - continuousWork), index);
-        //上記の配列のなかで勤務日のみを数える
-        const recentWorkCount = recentDay.filter(work => workday.includes(work)).length;
-        //連勤上限に達していたらcontinue;
-        if (recentWorkCount >= continuousWork) continue;
-        //該当日の翌日～連勤上限日数分のシフトを取り出す
-        const afterDay = shift.slice(index + 1, index + continuousWork + 1);
-        const afterWorkCount = afterDay.filter(work => workday.includes(work)).length;
-        if (afterWorkCount >= continuousWork) continue;
-        //その日に勤務者数最低日
-        shift[index] = nikkin;
-        currentDaysOff--;
-        if (currentDaysOff == monthlyDayOff) break;
-        found = true;
+
+        if (shift[index] == yasumi) {
+          shift[index] = nikkin;
+          //現在のindex日で以下のfor文で一度でも
+          for (let i = 0; i < limitoverWorkDay; i++) {
+            const recentDay = shift.slice(
+              Math.max(0, index - continuousWork + i),
+              Math.min(index + i + 1, eoMonth)
+            );
+
+            const recentDayWorkCount = recentDay.filter(work => workday.includes(work)).length;
+            if (recentDayWorkCount >= limitoverWorkDay) {
+              shift[index] = yasumi;
+              break;
+            }
+          };
+          //日勤が入ったので現在の休日数から1日引く
+          if (shift[index] == nikkin) {
+            currentDaysOff--;
+            found = true;
+          }
+        };
+        if (currentDaysOff <= monthlyDayOff) break;
       };
       if (!found) break;
     };
-
-
-
-
-
   };
 
   //⭐️スプレッドシートに転記
