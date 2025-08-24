@@ -175,11 +175,6 @@ function ShiftAutomation() {
       //今月の　休日数を抽出
       const dayOffThisMonth = shift.filter(off => dayOff.includes(off)).length;
       //休日日数達しているならcontinue
-      if (name == "松本結衣") Logger.log("day" + day);
-      if (name == "松本結衣") Logger.log(name);
-      if (name == "松本結衣") Logger.log("休暇数 =" + dayOffThisMonth);
-      if (name == "松本結衣") Logger.log(shift.filter(off => dayOff.includes(off)));
-
       if (dayOffThisMonth == monthlyDayOff) continue;
 
       if (next2Day < eoMonth) {
@@ -324,6 +319,7 @@ function ShiftAutomation() {
           const recentDay = shift.slice(
             Math.max(0, index - continuousWork + i),
             Math.min(index + i + 1, eoMonth)
+            //slice（a,b）はbの前までスライスするから+1日。eoMonthは月末日＋１番目なので＋１の操作不要　
           );
 
           const recentDayWorkCount = recentDay.filter(work => workday.includes(work)).length;
