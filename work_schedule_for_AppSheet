@@ -1,0 +1,432 @@
+function ShiftAutomation() {
+  // ⭐️変数の定義
+  const ss = SpreadsheetApp.getActiveSpreadsheet();  //スプレッドシートアプリを呼び出して、現在のスプレッドシートファイルを取得
+  //シート取得
+  const staffRegisterSheet = ss.getSheetByName("スタッフ名簿"); //スタッフ名簿シートを取得
+  const dayOffSheet = ss.getSheetByName("希望休入力カレンダー"); //現場が入力するシートを取得
+  const workSettingSheet = ss.getSheetByName("勤務設定");
+  const testSheet = ss.getSheetByName("テスト");
+  const jobSheet = ss.getSheetByName("職種");
+  const jobTypeSheet = ss.getSheetByName("職種種別");
+  const staffingTypeSheet = ss.getSheetByName("人員配置種別");
+  const employeeTypeSheet = ss.getSheetByName("雇用形態");
+
+  //[シート]職種種別
+  const jobTypeArr = jobTypeSheet.getDataRange().getValues();
+  jobTypeArr.shift();
+  const jobTypeObj = Object.fromEntries(jobTypeArr.map(([pk, fk]) => [pk, fk]));
+
+  //[シート]人員配置種別
+  const staffingTypeArr = staffingTypeSheet.getDataRange().getValues();
+  staffingTypeArr.shift();
+  const staffingTypeObj = Object.fromEntries(staffingTypeArr.map(([pk, fk]) => [pk, fk]));
+
+  //[シート]雇用形態
+  const employeeTypeArr = employeeTypeSheet.getRange(2, 1, employeeTypeSheet.getLastRow() - 1, employeeTypeSheet.getLastColumn()).getValues();
+  const employeeTypeObj = Object.fromEntries(employeeTypeArr.map(([pk, fk]) => [pk, fk]));
+  const onlyDayShift = "日勤専従";
+  const onlyNightShift = "夜勤専従";
+
+  //[シート]職種
+  const jobDataArr = jobSheet.getDataRange().getValues();
+  const jobDataShift = jobDataArr.shift()
+  const jobTypeIdCol = jobDataShift.indexOf("職種種別ID");
+  const staffingTypeIdCol = jobDataShift.indexOf("人員配置種別ID");
+  //職種種別と人員配置種別の外部キーから職種シートにある主キーにjoinさせる
+  const jobDataArr2 = jobDataArr.map(arr => [...arr, jobTypeObj[arr[jobTypeIdCol]]]);
+  const jobDataShift2 = [...jobDataShift, "職種種別"];
+  const jobTypeCol = jobDataShift2.indexOf("職種種別");
+  const jobDataArr3 = jobDataArr2.map(arr => [...arr, staffingTypeObj[arr[staffingTypeIdCol]]]);
+  const jobDataShift3 = [...jobDataShift2, "人員配置種別"];
+  const staffingTypeCol = jobDataShift3.indexOf("人員配置種別");
+  const jobDataObj = Object.fromEntries(jobDataArr.map(([pk, fk]) => [pk, fk]));
+
+  //[シート]スタッフ名簿
+  //スタッフ名簿の値を取得
+  const staffsData = staffRegisterSheet.getDataRange().getValues();
+  const staffsDataShift = staffsData.shift();
+  const jobDataIdCol = staffsDataShift.indexOf("職種ID");
+  const staffsData2 = staffsData.map(arr => [...arr, jobDataObj[arr[jobDataIdCol]]]);
+  const staffsDataShift2 = [...staffsDataShift, "職種"];
+  const jobCol = staffsDataShift2.indexOf("職種");
+  const employeeTypeIdCol = staffsDataShift.indexOf("雇用形態ID");
+  const staffsData3 = staffsData2.map(arr => [...arr, employeeTypeObj[arr[employeeTypeIdCol]]]);
+  const staffsDataShift3 = [...staffsDataShift2, "雇用形態"];
+  const employeeTypeCol = staffsDataShift3.indexOf("雇用形態");
+  const namecol = staffsDataShift3.indexOf("氏名");
+  const satffsAvailableDaysCol = staffsDataShift3.indexOf("出勤可能曜日");
+  //直打ち...どうしよ
+  const nurseJob = "看護師";
+
+  //[シート]希望休
+  const shiftYear = dayOffSheet.getRange(1, 1).getValue(); //希望休カレンダーにある　年　を取得
+  const shiftMonth = dayOffSheet.getRange(1, 5).getValue();//希望休カレンダーにある　月　を取得
+  const eoMonth = new Date(shiftYear, shiftMonth, 0).getDate();     //希望休カレンダーにある　月末日　を取得
+  //対象月の日付の配列
+  const dateArr = [...Array(eoMonth)].map((v, i) => v = new Date(shiftYear, shiftMonth - 1, i + 1));
+  const dayOfweekArr = dateArr.map(d => d.getDay());//対象月の曜日番号の配列
+  const weekDefineObj = { "日": 0, "月": 1, "火": 2, "水": 3, "木": 4, "金": 5, "土": 6 };
+  const weekDefineArr = ["日", "月", "火", "水", "木", "金", "土"];
+  const weekDefineInt = [0, 1, 2, 3, 4, 5, 6];
+  //曜日　と　その曜日の日にち　に仕分ける
+  const dayOfWeekObj = Object.fromEntries(weekDefineInt.map(week => {
+    const dateIndex = dayOfweekArr.map((date, i) => week == date ? i : null).filter(i => i != null);
+    return [week, dateIndex];
+  }));//log {1=[0.0, 7.0, 14.0, 21.0, 28.0], 0=[6.0, 13.0, 20.0, 27.0],...}
+
+  //[シート]シフト名
+  const nikkin = "日";
+  const yakin = "夜";
+  const ake = "明";
+  const kibokyu = "希";
+  const yukyu = "有";
+  const kakikyu = "夏";
+  const toukikyu = "冬";
+  const yasumi = "休";
+  const akeyasu = "明休"
+  const workday = [nikkin, yakin];
+  const dayOff = [yasumi, kibokyu, akeyasu];
+  const dayOffForYakin = [yasumi, kibokyu];
+  const asatteyasumi = [null, kibokyu];
+
+  //[シート]勤務条件設定
+  const settingRowDatas = workSettingSheet.getDataRange().getValues();
+  const settingRowDatasShift = settingRowDatas.shift();
+  const settingRowDatasObj = Object.fromEntries(settingRowDatas.map(([id, item, value]) => [item, value]));
+  const requiredDayStaffs = settingRowDatasObj["日勤スタッフ数"];
+  const requiredNightStaffs = settingRowDatasObj["夜勤スタッフ数"];
+  const requiredDayNurses = settingRowDatasObj["日勤看護師最低人数"];
+  const requiredNightNurses = settingRowDatasObj["夜勤看護師最低人数"];
+  const continuousWork = settingRowDatasObj["連勤上限"];
+  const limitoverWorkDay = continuousWork + 1;//連勤上限のループ時使用
+  const monthlyDayOff = settingRowDatasObj["月間休暇日数"];
+  const nightShiftInterval = settingRowDatasObj["夜勤最短間隔"];
+
+
+  //⭐️希望日を入れる
+  //スタッフ名と勤務表の配列をプロパティにしたオブジェクトを作成
+  const dayOffStaffs = dayOffSheet.getRange(6, 1, dayOffSheet.getLastRow() - 5, 1).getValues().flat();
+  const dayOffStaffsObj = Object.fromEntries(dayOffStaffs.map(v => [v, [...Array(eoMonth)].fill(null)]));
+  //log {山本陽介=[null, null, null, null,,,],,,}
+
+  //"スタッフ名簿"の"出勤可能曜日"にある出勤できない曜日を整数で取り出す
+  const dayNotWorkStaffsObj = Object.fromEntries(staffsData3.map(v => {
+    const week = v[satffsAvailableDaysCol].split(",").map(s => s.trim());//[月, 火, 水, 木, 金, 土]
+    const toIndex = weekDefineArr.filter(v => !week.includes(v)).map(v => weekDefineObj[v]);//[1,2,6]
+    return [v[namecol], toIndex];
+  }));//{伊藤直樹=[], 清水咲良=[0.0, 6.0],,,}
+
+
+  for (let staff in dayOffStaffsObj) {//人ごとに
+    const a = dayNotWorkStaffsObj[staff].reduce((acc, v) => {
+      acc.push(dayOfWeekObj[v]);
+      return acc;
+    }, []).flat();//[0, 7, 14, 21, 28,6, 13, 20, 27]
+    dayOffStaffsObj[staff] = dayOffStaffsObj[staff].map((day, index) => {
+      return a.includes(index) ? day = kibokyu : day
+    });
+  };
+
+  //希望日の二次元配列
+  let desiredSchedulesArr = dayOffSheet.getRange(6, 2, dayOffStaffs.length, eoMonth).getValues();
+
+  desiredSchedulesArr.map(row => {
+    row.map((val, i, staff) => {
+      if (val == yakin) {
+        staff[i + 1] = ake;
+        staff[i + 2] = akeyasu;
+      };
+    });
+  });
+
+  //空白セルはnullに書き換え
+  const desiredSchedules = desiredSchedulesArr.map(row => row.map(v => v == "" ? null : v));
+  //{スタッフ：[シフト]}のオブジェクトにする
+  const desiredSchedulesObj = Object.fromEntries(
+    dayOffStaffs.map((staff, index) => {
+      const dayOffData = desiredSchedules[index];
+      return [staff, dayOffData];
+    }));
+  //log {清水咲良:[null, "希", null,...],鈴木翔太:["有", null, null,...],...} 
+
+  //上記二つの配列を融合して希望休を優先した勤務表にする。
+  for (let staff in dayOffStaffsObj) {
+    const a = dayOffStaffsObj[staff].map((v, i) => {
+      return desiredSchedulesObj[staff][i] != null ?
+        dayOffStaffsObj[staff][i] = desiredSchedulesObj[staff][i] : v;
+    });
+    dayOffStaffsObj[staff] = a;
+  };
+
+  const shiftMonthByStaffs = dayOffStaffsObj; 
+
+  // Logger.log(shiftMonthByStaffs);
+  //⭐️⭐️シフト作成フェーズ１　日毎にシフトを作成する
+  for (let day = 0; day < eoMonth; day++) {//該当月の1日から月末日まで
+    const nextDay = day + 1;
+    const next2Day = day + 2;
+    const prevDay = day - 1;
+    const prev2Day = day - 2;
+
+    //現在の夜勤数をカウントして｛スタッフ:夜勤数}のオブジェクトにする
+    const nightShiftThisMonthObj = Object.fromEntries(
+      Object.entries(shiftMonthByStaffs).map(([name, values]) => {
+        const count = values.filter(v => v == yakin).length;
+        return [name, count]
+      }));
+
+    //現在の休日数をカウントして｛スタッフ:休日数}のオブジェクトにする
+    const dayOffThisMonthObj = Object.fromEntries(
+      Object.entries(shiftMonthByStaffs).map(([name, values]) => {
+        const count = values.filter(v => dayOff.includes(v)).length;
+        return [name, count]
+      }));
+
+    //夜勤用配列：①夜勤少ない順、②休日多い順、③ランダムでソート
+    const sortedNightStaffs = [...staffsData3].sort((a, b) => {
+
+      const nightA = nightShiftThisMonthObj[a[namecol]];
+      const nightB = nightShiftThisMonthObj[b[namecol]];
+      const nightDiff = nightA - nightB;
+
+      const offA = dayOffThisMonthObj[a[namecol]];
+      const offB = dayOffThisMonthObj[b[namecol]];
+      const offDiff = offB - offA
+
+      if (nightDiff != 0) return nightDiff
+      if (offDiff != 0) return offDiff
+      return Math.random() - 0.5;
+    });
+
+    //日勤用配列：①休日多い順、②ランダムでソート
+    const sortedStaffs = [...staffsData3].sort((a, b) => {
+      const offA = dayOffThisMonthObj[a[namecol]];
+      const offB = dayOffThisMonthObj[b[namecol]];
+      const offDiff = offB - offA
+      if (offDiff != 0) return offDiff
+      return Math.random() - 0.5;
+    });
+
+
+    //夜勤を検討
+    //ソートしたスタッフの配列から勤務を割り当て
+    for (let data of sortedNightStaffs) {//[]の中は"スタッフ名簿"シートの順番に則る
+      //ループさせる変数
+      const name = data[namecol];
+      const job = data[jobCol];
+      const type = data[employeeTypeCol]
+
+      const shift = shiftMonthByStaffs[name];
+      //夜勤の現在人数を数える
+      const numberOfNightStaffs = Object.values(shiftMonthByStaffs).filter(row => row[day] == yakin).length;
+      //夜勤の現在の　看護師以外　の人数を数える
+      const numberOfNightOthers = staffsData3.filter(staff => {
+        const staffName = staff[namecol];
+        const staffjob = staff[jobCol];
+        return staffjob != nurseJob && shiftMonthByStaffs[staffName][day] == yakin;
+      }).length;
+      //夜勤の現在の　看護師　の人数を数える
+      const numberOfNightnurses = staffsData3.filter(staff => {
+        const staffName = staff[namecol];
+        const staffjob = staff[jobCol];
+        return staffjob == nurseJob && shiftMonthByStaffs[staffName][day] == yakin;
+      }).length;
+
+      //必要人数に達していたらbreak
+      if (numberOfNightStaffs >= requiredNightStaffs) break;
+      //看護師　と　看護師以外　の人数が規定数配置されていたらcontinue
+      if (job == nurseJob && numberOfNightnurses >= requiredNightNurses) continue;
+      if (job != nurseJob && numberOfNightOthers >= requiredNightStaffs - requiredNightNurses) continue;
+
+      if (shift[day]) continue;  //その日[day]にnull以外が入っていたらcontinue
+      if (type == onlyDayShift) continue; //雇用形態が日勤専従ならcontinue
+      const prevDay1shift = day > 0 ? shift[prevDay] : null; //前日のシフト
+      const prevDay2shift = day > 1 ? shift[prev2Day] : null; //前々日のシフト
+      if ([prevDay1shift, prevDay2shift].includes(yakin)) continue; //前日と前々日に夜勤が含まれていたらcontinue
+
+      //直近の夜勤シフト
+      const forNightShiftInterval = shift.slice(Math.max(0, day - nightShiftInterval), day)
+      //直近の夜勤回数
+      const nightShiftIntervalLength = forNightShiftInterval.filter(work => yakin.includes(work)).length
+      //指定の期間に夜勤があればcontinue
+      if (nightShiftIntervalLength >= 1) continue;
+      //直近の「連勤上限」日数分の勤務str
+      const previousDay = shift.slice(Math.max(0, day - continuousWork), day);
+      //そのうちの日勤の数
+      const previousWorkCount = previousDay.filter(v => v == nikkin).length;
+      //連勤上限に達していたらcontinue
+      if (day > 0 && previousWorkCount == continuousWork) continue;
+
+      //今月の　休日数を抽出
+      const dayOffThisMonth = shift.filter(off => dayOff.includes(off)).length;
+      //休日日数達しているならcontinue
+      if (dayOffThisMonth == monthlyDayOff) continue;
+
+      if (next2Day < eoMonth) {
+        if (shift[nextDay] == null && asatteyasumi.includes(shift[next2Day])) {
+          shift[day] = yakin;//上記の条件(明日、明後日が休日)をクリアした人に夜勤を入れる
+          shift[nextDay] = ake;//夜勤に翌日は明け
+          shift[next2Day] = akeyasu;//明けの次の日は必ず休みになる
+        };
+      } else if (next2Day == eoMonth) {
+        if (shift[nextDay] == null) {
+          shift[day] = yakin;
+          shift[nextDay] = ake;//夜勤に翌日は明け
+        };
+      } else {
+        shift[day] = yakin;
+      }
+      // };
+    };
+
+    //日勤を検討   夜勤との違いは翌日、翌々日に勤務情報を入れなくもよいところ。
+    for (let data of sortedStaffs) {
+      const name = data[namecol];
+      const job = data[jobCol];
+      const type = data[employeeTypeCol];
+      const shift = shiftMonthByStaffs[name];
+      const numberOfDayStaffs = Object.values(shiftMonthByStaffs).filter(row => row[day] == nikkin).length;
+      const numberOfDayOthers = staffsData3.filter(staff => {
+        const staffName = staff[namecol];
+        const staffjob = staff[jobCol];
+        return staffjob != nurseJob && shiftMonthByStaffs[staffName][day] == nikkin;
+      }).length;
+      const numberOfDaynurses = staffsData3.filter(staff => {
+        const staffName = staff[namecol];
+        const staffjob = staff[jobCol];
+        return staffjob == nurseJob && shiftMonthByStaffs[staffName][day] == nikkin;
+      }).length;
+      if (numberOfDayStaffs >= requiredDayStaffs) break;
+      if (job == nurseJob && numberOfDaynurses >= requiredDayNurses) continue;
+      if (job != nurseJob && numberOfDayOthers >= requiredDayStaffs - requiredDayNurses) continue;
+      if (shift[day]) continue;
+      if (type == onlyNightShift) continue; //夜勤専従ならcontinue
+      const prevDay1 = day > 0 ? shift[prevDay] : null;
+      const prevDay2 = day > 1 ? shift[prev2Day] : null;
+      if ([prevDay1, prevDay2].includes(yakin)) continue;
+
+      const previousDay = shift.slice(Math.max(0, day - continuousWork), day);
+      const previousWorkCount = previousDay.filter(v => v == nikkin).length;
+      if (day > 0 && previousWorkCount == continuousWork) continue;
+      const dayOffThisMonth = shift.filter(off => dayOff.includes(off)).length;
+      if (dayOffThisMonth == monthlyDayOff) continue;
+      shift[day] = nikkin;
+      // };
+    };
+    //ここで勤務が当てはまらなかった人は"休"とする
+    for (let name in shiftMonthByStaffs) {
+      const shift = shiftMonthByStaffs[name];
+      if (shift[day] == null) shift[day] = yasumi;
+    };
+  };
+
+  //⭐️⭐️シフト作成フェーズ２　定員に達していない日
+  for (let name in shiftMonthByStaffs) {
+    const shift = shiftMonthByStaffs[name];
+    // 現在の休み数を数える
+    let currentDaysOff = shift.filter(day => dayOff.includes(day)).length;
+    const type = staffsData3.filter(col => col[namecol] == name).flat()[employeeTypeCol];
+
+    // 指定の休日数より休んでない人はcontinue
+    if (currentDaysOff <= monthlyDayOff) continue;
+
+    //対象者の一月のシフトを初日からループ
+    for (let day = 0; day < shift.length; day++) {
+      if (shift[day] != yasumi) continue;//"休"しか検討しない
+      //直近の「連勤上限」日数分の勤務arr
+      const previousDay = shift.slice(Math.max(0, day - continuousWork), day);
+      const previousWorkCount = previousDay.filter(work => workday.includes(work)).length;
+      if (day > 0 && previousWorkCount == continuousWork) continue;//連勤上限に達していたらcontinue
+
+      const nextDay = day + 1;
+      const next2Day = day + 2;
+      // その日の勤務人数を数える
+      const dayWorkCount = Object.values(shiftMonthByStaffs).filter(row => row[day] == nikkin).length;
+      const dayNightCount = Object.values(shiftMonthByStaffs).filter(row => row[day] == yakin).length;
+
+      // 夜勤を検討  夜勤が足りていない & 明け/次の日に勤務がなければ
+      if (dayNightCount < requiredNightStaffs) {
+        if (type == onlyDayShift) continue;
+        // 明け・休みを入れる余裕があるか
+        if (next2Day < eoMonth) {//シフトを入れる翌々日が月末日未満のとき
+          if (shift[nextDay] == yasumi && dayOffForYakin.includes(shift[next2Day])) {
+            shift[day] = yakin;
+            shift[nextDay] = ake;
+            shift[next2Day] = akeyasu;
+            currentDaysOff--;//現在の休日数--
+          };
+        } else if (next2Day == eoMonth) {//シフト翌日が月末の時
+          if (shift[nextDay] == yasumi) {
+            shift[day] = yakin;
+            shift[nextDay] = ake;
+            currentDaysOff--;
+          };
+        } else {//シフトが月末のとき
+          shift[day] = yakin;
+          currentDaysOff--;
+        };
+      };
+
+      //日勤検討　まだ日勤人数が足りていないなら
+      if (dayWorkCount < requiredDayStaffs) {
+        if (type == onlyNightShift) continue;
+        if (shift[day] == yasumi) {
+          shift[day] = nikkin;
+          currentDaysOff--;
+        };
+      };
+    };
+  };
+
+  //⭐️⭐️シフト作成フェーズ３　休日数が多すぎるスタッフに日勤を割り当てていく
+  //人ごとにループして、休暇日数が多すぎる人は、勤務者数が少ない日順に　日勤を割り当てる
+  for (let name in shiftMonthByStaffs) {
+    const shift = shiftMonthByStaffs[name];
+    const type = staffsData3.filter(col => col[namecol] == name).flat()[employeeTypeCol];
+    if (type == onlyNightShift) continue;
+    let currentDaysOff = shift.filter(day => dayOff.includes(day)).length;
+    if (currentDaysOff <= monthlyDayOff) continue;
+
+    //月間の勤務者数が少ないランキング（連想配列の配列）
+    const workCount = [...Array(eoMonth)].fill(null).map((_, col) => ({
+      index: col,
+      values: Object.values(shiftMonthByStaffs).map(row => row[col]).filter(v => v == nikkin).length
+    })).sort((a, b) => a.values - b.values);
+
+
+    for (let { index } of workCount) {  //勤務者数少ない日ランキング上位からみていく    
+
+      if (shift[index] == yasumi) {
+        //一旦日勤を割り当てて、連勤上限を超えていたら休みに戻す。
+        shift[index] = nikkin;
+        //現在検討している日の前後[連勤上限]日数を取り出す
+        for (let i = 0; i < limitoverWorkDay; i++) {
+          const recentDay = shift.slice(
+            Math.max(0, index - continuousWork + i),
+            Math.min(index + i + 1, eoMonth)
+            //slice（a,b）はbの前までスライスするから+1日。eoMonthは月末日＋１番目なので＋１の操作不要　
+          );
+
+          const recentDayWorkCount = recentDay.filter(work => workday.includes(work)).length;
+          //検討日のなかで連勤上限に達していたら休みに戻す
+          if (recentDayWorkCount >= limitoverWorkDay) {
+            shift[index] = yasumi;
+            break;
+          }
+        };
+        //日勤が入っていたら　現在の休日数から1日引く
+        if (shift[index] == nikkin) currentDaysOff--
+      };
+      //月間の指定休日数まで減らすことができたら　その人　の検討は終わり。
+      if (currentDaysOff <= monthlyDayOff) break;
+    };
+  };
+
+  //⭐️スプレッドシートに転記
+  //スプレッドシートに吐き出せる様に二次元配列に直す
+  const testArray = Object.entries(shiftMonthByStaffs).map(([name, shift]) => [name, ...shift]);
+  //スプレッドシートに転記
+  testSheet.clear();
+  testSheet.getRange(1, 1, testArray.length, testArray[0].length).setValues(testArray);
+
+};
