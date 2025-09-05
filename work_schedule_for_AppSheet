@@ -1,5 +1,5 @@
 function ShiftAutomation() {
-  // ⭐️変数の定義 てすと
+  // ⭐️変数の定義
   const ss = SpreadsheetApp.getActiveSpreadsheet();  //スプレッドシートアプリを呼び出して、現在のスプレッドシートファイルを取得
   //シート取得
   const staffRegisterSheet = ss.getSheetByName("スタッフ名簿"); //スタッフ名簿シートを取得
